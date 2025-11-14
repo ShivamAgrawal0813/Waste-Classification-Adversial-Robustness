@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+data
+# Models
+models/*.pth
+models/*.pt
+models/*.pkl
+notebooks/TrashNet_Training_Demo.ipynb
+# Outputs
+# outputs/*
+!outputs/.gitkeep
+
+# Data (optional - uncomment if you don't want to track dataset)
+# data/trashnet/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+model_card.md
+quickstart.md
+project_summary.md
+
+verify_setup.py
