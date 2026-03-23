@@ -49,6 +49,10 @@ def get_model(model_name: str = MODEL_NAME, num_classes: int = NUM_CLASSES,
         model = models.resnet18(pretrained=pretrained)
         num_features = model.fc.in_features
         model.fc = nn.Linear(num_features, num_classes)
+    elif model_name == 'efficientnet_v2_s':
+        model = models.efficientnet_v2_s(pretrained=pretrained)
+        num_features = model.classifier[1].in_features
+        model.classifier[1] = nn.Linear(num_features, num_classes)
     else:
         raise ValueError(f"Unknown model: {model_name}")
     

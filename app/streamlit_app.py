@@ -17,7 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config import (
     CLEAN_MODEL_PATH, ADV_MODEL_PATH, METRICS_FILE, OUTPUTS_DIR,
-    EPS_FGSM, EPS_PGD, PGD_STEPS_EVAL, CLASS_NAMES, IDX_TO_CLASS
+    EPS_FGSM, EPS_PGD, PGD_STEPS_EVAL, CLASS_NAMES, IDX_TO_CLASS,
+    EFFNET_CLEAN_PATH, EFFNET_METRICS_FILE, EFFNET_CONFUSION_CLEAN,
+    EFFNET_CONFUSION_PGD, EFFNET_ACC_VS_EPS
 )
 from src.inference import (
     load_image, preprocess_image, predict, generate_adversarial_examples,
@@ -90,8 +92,8 @@ st.sidebar.header("⚙️ Configuration")
 # Model selection
 model_type = st.sidebar.selectbox(
     "Select Model",
-    ["Clean Model", "Adversarial Model"],
-    help="Choose between clean (standard) or adversarial (robust) model"
+    ["Clean ResNet-50", "Adversarial ResNet-50", "EfficientNet-V2S"],
+    help="Choose the model architecture and training type"
 )
 
 # File upload
@@ -129,30 +131,41 @@ if 'device' not in st.session_state:
 
 
 @st.cache_resource
-def load_model_cached(model_path: str, device: torch.device):
+def load_model_cached(model_path: str, model_name: str, device: torch.device):
     """Load model with caching."""
     if os.path.exists(model_path):
-        return load_model_for_inference(model_path, device)
+        return load_model_for_inference(model_path, model_name, device)
     return None
 
 
 # Load model based on selection
-model_path = CLEAN_MODEL_PATH if model_type == "Clean Model" else ADV_MODEL_PATH
-model_name = "Clean" if model_type == "Clean Model" else "Adversarial"
+if model_type == "Clean ResNet-50":
+    model_path = CLEAN_MODEL_PATH
+    selected_model_name = "resnet50"
+elif model_type == "Adversarial ResNet-50":
+    model_path = ADV_MODEL_PATH
+    selected_model_name = "resnet50"
+else:  # EfficientNet-V2S
+    model_path = EFFNET_CLEAN_PATH
+    selected_model_name = "efficientnet_v2_s"
+
+# Update preprocessing and inference params
+inf_image_size = 128 if selected_model_name == "efficientnet_v2_s" else 224
 
 if os.path.exists(model_path):
-    st.session_state.model = load_model_cached(model_path, st.session_state.device)
-    st.sidebar.success(f"✓ {model_name} model loaded")
+    st.session_state.model = load_model_cached(model_path, selected_model_name, st.session_state.device)
+    st.sidebar.success(f"✓ {model_type} loaded")
 else:
-    st.sidebar.error(f"❌ Model not found: {model_path}")
-    st.sidebar.info("Please train the model first using `python src/train.py` or `python src/adv_train.py`")
+    st.sidebar.error(f"❌ Model not found: {os.path.basename(model_path)}")
+    train_cmd = "src/train_efficientnet.py" if "EfficientNet" in model_type else "src/train.py"
+    st.sidebar.info(f"Please train the model first using `python {train_cmd}`")
 
 # Main content
 if run_classification and uploaded_file is not None:
     try:
         # Load and preprocess image
         image = load_image(uploaded_file)
-        image_tensor = preprocess_image(image)
+        image_tensor = preprocess_image(image, image_size=inf_image_size)
         
         # Get clean prediction
         clean_pred = predict(st.session_state.model, image_tensor, st.session_state.device, top_k=3)
@@ -240,7 +253,8 @@ if run_classification and uploaded_file is not None:
         
         # Load metrics if available (robustly)
         try:
-            metrics = load_metrics(METRICS_FILE)
+            current_metrics_file = EFFNET_METRICS_FILE if "EfficientNet" in model_type else METRICS_FILE
+            metrics = load_metrics(current_metrics_file)
         except Exception as e:
             st.warning(f"Failed to load metrics file: {e}")
             metrics = {}
@@ -258,26 +272,33 @@ if run_classification and uploaded_file is not None:
 
         if metrics:
             # Support multiple possible key names: 'clean'/'adv' or 'clean_model'/'adversarial_model'
-            preferred_keys = {
-                'Clean Model': ['clean_model', 'clean'],
-                'Adversarial Model': ['adversarial_model', 'adv', 'adv_model']
-            }
-            candidates = preferred_keys.get(model_type, [])
-            model_key = None
-            for c in candidates:
-                if c in metrics:
-                    model_key = c
-                    break
+            # If it's the specific EfficientNet metrics file, it's flat
+            if "EfficientNet" in model_type:
+                model_metrics = metrics
+                model_key = "EfficientNet"
+            else:
+                preferred_keys = {
+                    'Clean ResNet-50': ['clean_model', 'clean'],
+                    'Adversarial ResNet-50': ['adversarial_model', 'adv', 'adv_model']
+                }
+                candidates = preferred_keys.get(model_type, [])
+                model_key = None
+                
+                for c in candidates:
+                    if c in metrics:
+                        model_key = c
+                        break
+                
+                # If still not found, try to detect common names
+                if model_key is None:
+                    if 'clean' in metrics and "Clean" in model_type:
+                        model_key = 'clean'
+                    elif 'adv' in metrics and "Adversarial" in model_type:
+                        model_key = 'adv'
 
-            # If still not found, try to detect common names
-            if model_key is None:
-                if 'clean' in metrics and model_type == 'Clean Model':
-                    model_key = 'clean'
-                elif 'adv' in metrics and model_type != 'Clean Model':
-                    model_key = 'adv'
+                model_metrics = metrics.get(model_key) if model_key else None
 
-            if model_key and model_key in metrics:
-                model_metrics = metrics[model_key]
+            if model_metrics:
 
                 # Display accuracy metrics
                 col1, col2, col3 = st.columns(3)
@@ -308,7 +329,11 @@ if run_classification and uploaded_file is not None:
                     st.pyplot(fig)
                 else:
                     # Try saved plot images
-                    acc_plot = os.path.join(OUTPUTS_DIR, 'accuracy_vs_eps.png')
+                    if "EfficientNet" in model_type:
+                        acc_plot = EFFNET_ACC_VS_EPS
+                    else:
+                        acc_plot = os.path.join(OUTPUTS_DIR, 'accuracy_vs_eps.png')
+                        
                     acc_clean_plot = os.path.join(OUTPUTS_DIR, 'accuracy_vs_eps_clean.png')
                     if os.path.exists(acc_plot):
                         st.subheader('Accuracy vs Epsilon (saved)')
@@ -317,13 +342,16 @@ if run_classification and uploaded_file is not None:
                         st.subheader('Accuracy vs Epsilon (clean saved)')
                         _safe_st_image(acc_clean_plot, caption='Accuracy vs Epsilon (clean saved)')
 
-                # Confusion matrices (use saved images if present)
                 st.subheader("Confusion Matrices")
                 col1, col2 = st.columns(2)
                 with col1:
-                    confusion_clean_path = os.path.join(OUTPUTS_DIR, 'confusion_clean.png')
-                    if model_type != 'Clean Model':
+                    if "EfficientNet" in model_type:
+                        confusion_clean_path = EFFNET_CONFUSION_CLEAN
+                    elif model_type != 'Clean ResNet-50':
                         confusion_clean_path = os.path.join(OUTPUTS_DIR, 'confusion_adv.png')
+                    else:
+                        confusion_clean_path = os.path.join(OUTPUTS_DIR, 'confusion_clean.png')
+                        
                     if os.path.exists(confusion_clean_path):
                         _safe_st_image(confusion_clean_path, caption="Clean Confusion Matrix")
                     else:
@@ -333,13 +361,17 @@ if run_classification and uploaded_file is not None:
                             st.text('Confusion matrix available in metrics JSON (not visualized)')
 
                 with col2:
-                    confusion_pgd_path = os.path.join(OUTPUTS_DIR, 'confusion_clean_pgd.png')
-                    if model_type != 'Clean Model':
+                    if "EfficientNet" in model_type:
+                        confusion_pgd_path = EFFNET_CONFUSION_PGD
+                    elif model_type != 'Clean ResNet-50':
                         confusion_pgd_path = os.path.join(OUTPUTS_DIR, 'confusion_adv_pgd.png')
+                    else:
+                        confusion_pgd_path = os.path.join(OUTPUTS_DIR, 'confusion_clean_pgd.png')
+                        
                     if os.path.exists(confusion_pgd_path):
                         _safe_st_image(confusion_pgd_path, caption="PGD Attack Confusion Matrix")
             else:
-                st.warning(f"Metrics not found for {model_name} model. Please run evaluation first.")
+                st.warning(f"Metrics not found for {model_type}. Please run evaluation first.")
         else:
             st.warning("Metrics file not found or invalid. Please run evaluation using `python src/eval.py`")
     

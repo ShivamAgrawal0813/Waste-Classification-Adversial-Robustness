@@ -53,19 +53,22 @@ class TrashNetDataset(Dataset):
         return image, label
 
 
-def get_transforms(mode: str = 'train') -> transforms.Compose:
+def get_transforms(mode: str = 'train', image_size: int = IMAGE_SIZE) -> transforms.Compose:
     """
     Get data transforms for training or testing.
     
     Args:
         mode: 'train' or 'test'
+        image_size: Target image size
     
     Returns:
         Compose transform
     """
+    # Maintain aspect ratio for resizing
+    resize_size = int(image_size * (RESIZE_SIZE / IMAGE_SIZE))
     if mode == 'train':
         return transforms.Compose([
-            transforms.RandomResizedCrop(IMAGE_SIZE, scale=(0.8, 1.0)),
+            transforms.RandomResizedCrop(image_size, scale=(0.8, 1.0)),
             transforms.RandomHorizontalFlip(0.5),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
             transforms.RandomRotation(15),
@@ -75,8 +78,8 @@ def get_transforms(mode: str = 'train') -> transforms.Compose:
         ])
     else:  # test/val
         return transforms.Compose([
-            transforms.Resize(RESIZE_SIZE),
-            transforms.CenterCrop(IMAGE_SIZE),
+            transforms.Resize(resize_size),
+            transforms.CenterCrop(image_size),
             transforms.ToTensor(),
             transforms.Normalize(mean=MEAN, std=STD),
         ])
@@ -206,6 +209,7 @@ def split_dataset(image_paths: List[str], labels: List[int],
 
 def get_dataloaders(batch_size: int = BATCH_SIZE, 
                    num_workers: int = NUM_WORKERS,
+                   image_size: int = IMAGE_SIZE,
                    seed: int = SEED) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Get train, validation, and test dataloaders.
@@ -213,6 +217,7 @@ def get_dataloaders(batch_size: int = BATCH_SIZE,
     Args:
         batch_size: Batch size
         num_workers: Number of worker processes
+        image_size: Target image size
         seed: Random seed
     
     Returns:
@@ -233,17 +238,17 @@ def get_dataloaders(batch_size: int = BATCH_SIZE,
     train_dataset = TrashNetDataset(
         list(train_paths), 
         list(train_labels), 
-        transform=get_transforms('train')
+        transform=get_transforms('train', image_size)
     )
     val_dataset = TrashNetDataset(
         list(val_paths), 
         list(val_labels), 
-        transform=get_transforms('test')
+        transform=get_transforms('test', image_size)
     )
     test_dataset = TrashNetDataset(
         list(test_paths), 
         list(test_labels), 
-        transform=get_transforms('test')
+        transform=get_transforms('test', image_size)
     )
     
     # Create dataloaders

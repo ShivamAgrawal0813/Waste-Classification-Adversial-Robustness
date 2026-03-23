@@ -24,19 +24,23 @@ def load_image(image_path: str) -> Image.Image:
     return image
 
 
-def preprocess_image(image: Image.Image) -> torch.Tensor:
+def preprocess_image(image: Image.Image, image_size: int = IMAGE_SIZE) -> torch.Tensor:
     """
     Preprocess image for model input.
     
     Args:
         image: PIL Image
+        image_size: Target image size
     
     Returns:
         Preprocessed tensor
     """
+    # Maintain aspect ratio for resizing
+    resize_size = int(image_size * (RESIZE_SIZE / IMAGE_SIZE))
+    
     transform = transforms.Compose([
-        transforms.Resize(RESIZE_SIZE),
-        transforms.CenterCrop(IMAGE_SIZE),
+        transforms.Resize(resize_size),
+        transforms.CenterCrop(image_size),
         transforms.ToTensor(),
         transforms.Normalize(mean=MEAN, std=STD),
     ])
@@ -182,12 +186,14 @@ def visualize_perturbation(original: torch.Tensor, adversarial: torch.Tensor,
     return perturbation_np
 
 
-def load_model_for_inference(model_path: str, device: torch.device = None) -> nn.Module:
+def load_model_for_inference(model_path: str, model_name: str = MODEL_NAME, 
+                            device: torch.device = None) -> nn.Module:
     """
     Load model for inference.
     
     Args:
         model_path: Path to model checkpoint
+        model_name: Name of the architecture
         device: Device to load model on
     
     Returns:
@@ -196,7 +202,7 @@ def load_model_for_inference(model_path: str, device: torch.device = None) -> nn
     if device is None:
         device = get_device()
     
-    model = get_model(MODEL_NAME, NUM_CLASSES, PRETRAINED)
+    model = get_model(model_name, NUM_CLASSES, PRETRAINED)
     checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)

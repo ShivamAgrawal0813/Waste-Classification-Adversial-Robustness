@@ -61,7 +61,7 @@ RANDOM_START = True
 ADV_TRAIN_MIX_RATIO = 0.5  # 0.5 * clean_loss + 0.5 * adv_loss
 
 # Model architecture
-MODEL_NAME = "resnet50"  # "resnet50" or "resnet18"
+MODEL_NAME = "resnet50"  # "resnet50", "resnet18", or "efficientnet_v2_s"
 PRETRAINED = True
 
 # Evaluation
@@ -76,7 +76,14 @@ DEVICE = "cuda"  # Will be set to "cpu" if CUDA not available
 # Model file names
 CLEAN_MODEL_PATH = os.path.join(MODELS_DIR, "resnet_trashnet_clean.pth")
 ADV_MODEL_PATH = os.path.join(MODELS_DIR, "resnet_trashnet_adv.pth")
+EFFNET_CLEAN_PATH = os.path.join(MODELS_DIR, "efficientnet_v2_s_clean.pth")
 
 # Metrics file
 METRICS_FILE = os.path.join(OUTPUTS_DIR, "metrics.json")
+EFFNET_METRICS_FILE = os.path.join(OUTPUTS_DIR, "metrics_efficientnet.json")
+
+# EfficientNet Plot paths
+EFFNET_CONFUSION_CLEAN = os.path.join(OUTPUTS_DIR, "confusion_effnet_clean.png")
+EFFNET_CONFUSION_PGD = os.path.join(OUTPUTS_DIR, "confusion_effnet_pgd.png")
+EFFNET_ACC_VS_EPS = os.path.join(OUTPUTS_DIR, "accuracy_vs_eps_effnet.png")
 
