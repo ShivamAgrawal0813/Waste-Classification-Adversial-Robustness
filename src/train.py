@@ -53,6 +53,10 @@ def get_model(model_name: str = MODEL_NAME, num_classes: int = NUM_CLASSES,
         model = models.efficientnet_v2_s(pretrained=pretrained)
         num_features = model.classifier[1].in_features
         model.classifier[1] = nn.Linear(num_features, num_classes)
+    elif model_name == 'mobilenet_v2':
+        model = models.mobilenet_v2(pretrained=pretrained)
+        num_features = model.classifier[1].in_features
+        model.classifier[1] = nn.Linear(num_features, num_classes)
     else:
         raise ValueError(f"Unknown model: {model_name}")
     

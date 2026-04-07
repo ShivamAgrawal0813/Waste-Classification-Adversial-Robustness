@@ -19,7 +19,9 @@ from src.config import (
     CLEAN_MODEL_PATH, ADV_MODEL_PATH, METRICS_FILE, OUTPUTS_DIR,
     EPS_FGSM, EPS_PGD, PGD_STEPS_EVAL, CLASS_NAMES, IDX_TO_CLASS,
     EFFNET_CLEAN_PATH, EFFNET_METRICS_FILE, EFFNET_CONFUSION_CLEAN,
-    EFFNET_CONFUSION_PGD, EFFNET_ACC_VS_EPS
+    EFFNET_CONFUSION_PGD, EFFNET_ACC_VS_EPS,
+    MOBILENET_CLEAN_PATH, MOBILENET_METRICS_FILE, MOBILENET_CONFUSION_CLEAN,
+    MOBILENET_CONFUSION_PGD, MOBILENET_ACC_VS_EPS
 )
 from src.inference import (
     load_image, preprocess_image, predict, generate_adversarial_examples,
@@ -92,7 +94,7 @@ st.sidebar.header("⚙️ Configuration")
 # Model selection
 model_type = st.sidebar.selectbox(
     "Select Model",
-    ["Clean ResNet-50", "Adversarial ResNet-50", "EfficientNet-V2S"],
+    ["Clean ResNet-50", "Adversarial ResNet-50", "EfficientNet-V2S", "MobileNetV2"],
     help="Choose the model architecture and training type"
 )
 
@@ -145,19 +147,32 @@ if model_type == "Clean ResNet-50":
 elif model_type == "Adversarial ResNet-50":
     model_path = ADV_MODEL_PATH
     selected_model_name = "resnet50"
+elif model_type == "MobileNetV2":
+    model_path = MOBILENET_CLEAN_PATH
+    selected_model_name = "mobilenet_v2"
 else:  # EfficientNet-V2S
     model_path = EFFNET_CLEAN_PATH
     selected_model_name = "efficientnet_v2_s"
 
 # Update preprocessing and inference params
-inf_image_size = 128 if selected_model_name == "efficientnet_v2_s" else 224
+if selected_model_name == "efficientnet_v2_s":
+    inf_image_size = 128
+elif selected_model_name == "mobilenet_v2":
+    inf_image_size = 160
+else:
+    inf_image_size = 224
 
 if os.path.exists(model_path):
     st.session_state.model = load_model_cached(model_path, selected_model_name, st.session_state.device)
     st.sidebar.success(f"✓ {model_type} loaded")
 else:
     st.sidebar.error(f"❌ Model not found: {os.path.basename(model_path)}")
-    train_cmd = "src/train_efficientnet.py" if "EfficientNet" in model_type else "src/train.py"
+    if "EfficientNet" in model_type:
+        train_cmd = "src/train_efficientnet.py"
+    elif "MobileNet" in model_type:
+        train_cmd = "src/train_mobilenet.py"
+    else:
+        train_cmd = "src/train.py"
     st.sidebar.info(f"Please train the model first using `python {train_cmd}`")
 
 # Main content
@@ -253,7 +268,12 @@ if run_classification and uploaded_file is not None:
         
         # Load metrics if available (robustly)
         try:
-            current_metrics_file = EFFNET_METRICS_FILE if "EfficientNet" in model_type else METRICS_FILE
+            if "EfficientNet" in model_type:
+                current_metrics_file = EFFNET_METRICS_FILE
+            elif "MobileNet" in model_type:
+                current_metrics_file = MOBILENET_METRICS_FILE
+            else:
+                current_metrics_file = METRICS_FILE
             metrics = load_metrics(current_metrics_file)
         except Exception as e:
             st.warning(f"Failed to load metrics file: {e}")
@@ -276,6 +296,9 @@ if run_classification and uploaded_file is not None:
             if "EfficientNet" in model_type:
                 model_metrics = metrics
                 model_key = "EfficientNet"
+            elif "MobileNet" in model_type:
+                model_metrics = metrics
+                model_key = "MobileNetV2"
             else:
                 preferred_keys = {
                     'Clean ResNet-50': ['clean_model', 'clean'],
@@ -331,6 +354,8 @@ if run_classification and uploaded_file is not None:
                     # Try saved plot images
                     if "EfficientNet" in model_type:
                         acc_plot = EFFNET_ACC_VS_EPS
+                    elif "MobileNet" in model_type:
+                        acc_plot = MOBILENET_ACC_VS_EPS
                     else:
                         acc_plot = os.path.join(OUTPUTS_DIR, 'accuracy_vs_eps.png')
                         
@@ -347,6 +372,8 @@ if run_classification and uploaded_file is not None:
                 with col1:
                     if "EfficientNet" in model_type:
                         confusion_clean_path = EFFNET_CONFUSION_CLEAN
+                    elif "MobileNet" in model_type:
+                        confusion_clean_path = MOBILENET_CONFUSION_CLEAN
                     elif model_type != 'Clean ResNet-50':
                         confusion_clean_path = os.path.join(OUTPUTS_DIR, 'confusion_adv.png')
                     else:
@@ -363,6 +390,8 @@ if run_classification and uploaded_file is not None:
                 with col2:
                     if "EfficientNet" in model_type:
                         confusion_pgd_path = EFFNET_CONFUSION_PGD
+                    elif "MobileNet" in model_type:
+                        confusion_pgd_path = MOBILENET_CONFUSION_PGD
                     elif model_type != 'Clean ResNet-50':
                         confusion_pgd_path = os.path.join(OUTPUTS_DIR, 'confusion_adv_pgd.png')
                     else:

@@ -77,13 +77,20 @@ DEVICE = "cuda"  # Will be set to "cpu" if CUDA not available
 CLEAN_MODEL_PATH = os.path.join(MODELS_DIR, "resnet_trashnet_clean.pth")
 ADV_MODEL_PATH = os.path.join(MODELS_DIR, "resnet_trashnet_adv.pth")
 EFFNET_CLEAN_PATH = os.path.join(MODELS_DIR, "efficientnet_v2_s_clean.pth")
+MOBILENET_CLEAN_PATH = os.path.join(MODELS_DIR, "mobilenet_v2_clean.pth")
 
 # Metrics file
 METRICS_FILE = os.path.join(OUTPUTS_DIR, "metrics.json")
 EFFNET_METRICS_FILE = os.path.join(OUTPUTS_DIR, "metrics_efficientnet.json")
+MOBILENET_METRICS_FILE = os.path.join(OUTPUTS_DIR, "metrics_mobilenet.json")
 
 # EfficientNet Plot paths
 EFFNET_CONFUSION_CLEAN = os.path.join(OUTPUTS_DIR, "confusion_effnet_clean.png")
 EFFNET_CONFUSION_PGD = os.path.join(OUTPUTS_DIR, "confusion_effnet_pgd.png")
 EFFNET_ACC_VS_EPS = os.path.join(OUTPUTS_DIR, "accuracy_vs_eps_effnet.png")
+
+# MobileNet Plot paths
+MOBILENET_CONFUSION_CLEAN = os.path.join(OUTPUTS_DIR, "confusion_mobilenet_clean.png")
+MOBILENET_CONFUSION_PGD = os.path.join(OUTPUTS_DIR, "confusion_mobilenet_pgd.png")
+MOBILENET_ACC_VS_EPS = os.path.join(OUTPUTS_DIR, "accuracy_vs_eps_mobilenet.png")
 
